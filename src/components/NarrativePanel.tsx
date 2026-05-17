@@ -1,19 +1,21 @@
 import { useSimStore } from '../store/simulationStore';
+import { formatStepShort, stepToYear } from '../simulation/types';
 
 function generateNarrative(s: ReturnType<typeof useSimStore.getState>['currentState']): string[] {
   const notes: string[] = [];
-  const y = s.year;
+  const y = stepToYear(s.step);
+  const label = formatStepShort(s.step);
 
   if (s.corporateScBalance > 5000) {
-    notes.push(`${y}年時点で企業SC残高が${(s.corporateScBalance / 10000).toFixed(1)}兆円に達した。B2B再利用率は${(s.b2bReuseRatio * 100).toFixed(0)}%。ステーブルコインは越境送金レールを超え、企業財務の中で再利用される決済性残高へと進化しつつある。`);
+    notes.push(`${label}時点で企業SC残高が${(s.corporateScBalance / 10000).toFixed(1)}兆円に達した。B2B再利用率は${(s.b2bReuseRatio * 100).toFixed(0)}%。ステーブルコインは越境送金レールを超え、企業財務の中で再利用される決済性残高へと進化しつつある。`);
   } else if (s.corporateScBalance > 500) {
-    notes.push(`${y}年時点で企業SC残高は${s.corporateScBalance.toFixed(0)}億円。越境決済を中心に採用が進んでいるが、B2Bでの再利用はまだ限定的（${(s.b2bReuseRatio * 100).toFixed(0)}%）。`);
+    notes.push(`${label}時点で企業SC残高は${s.corporateScBalance.toFixed(0)}億円。越境決済を中心に採用が進んでいるが、B2Bでの再利用はまだ限定的（${(s.b2bReuseRatio * 100).toFixed(0)}%）。`);
   }
 
   if (s.agentWalletScBalance > 1000) {
     notes.push(`AIエージェント向けウォレット残高が${s.agentWalletScBalance.toFixed(0)}億円を超えた。ユーザーが"AIに使わせるためのお金"としてSCを持つ動機が生まれており、給与経由とは異なる消費者保有ルートが形成されつつある。`);
   } else if (s.agentWalletUsers > 100000) {
-    notes.push(`${(s.agentWalletUsers / 10000).toFixed(0)}万人がエージェントウォレットを保有。年間決済量${s.annualAgentPaymentVolume.toFixed(0)}億円のAIエージェント経済圏が静かに拡大している。`);
+    notes.push(`${(s.agentWalletUsers / 10000).toFixed(0)}万人がエージェントウォレットを保有。年率換算決済量${s.annualAgentPaymentVolume.toFixed(0)}億円のAIエージェント経済圏が静かに拡大している。`);
   }
 
   if (s.consumerScBalance > 500) {
@@ -43,7 +45,7 @@ function generateNarrative(s: ReturnType<typeof useSimStore.getState>['currentSt
   }
 
   if (notes.length === 0) {
-    notes.push(`${y}年時点ではシミュレーションが初期フェーズにある。B2B決済での採用拡大と規制環境の整備が、次フェーズへの鍵となる。`);
+    notes.push(`${label}時点ではシミュレーションが初期フェーズにある（${y}年）。B2B決済での採用拡大と規制環境の整備が、次フェーズへの鍵となる。`);
   }
 
   return notes;
@@ -56,7 +58,7 @@ export function NarrativePanel() {
   return (
     <div className="bg-white rounded-lg border border-slate-200 p-4">
       <div className="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-3">
-        Narrative Analysis — {currentState.year}年
+        Narrative Analysis — {formatStepShort(currentState.step)}
       </div>
       <div className="space-y-3">
         {notes.map((note, i) => (

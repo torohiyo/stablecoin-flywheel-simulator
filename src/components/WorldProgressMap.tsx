@@ -9,6 +9,7 @@ import {
 import { useSimStore } from '../store/simulationStore';
 import { COUNTRIES, getAdoptionStageLabelJa, getReadinessCategory, computeReadinessScore } from '../simulation/countryData';
 import { TRADE_EDGES } from '../simulation/tradeNetwork';
+import { formatStepShort } from '../simulation/types';
 import type { CountryData } from '../simulation/types';
 
 const GEO_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
@@ -53,9 +54,16 @@ interface CountryDetailProps {
 }
 
 function CountryDetailDrawer({ country, onClose }: CountryDetailProps) {
-  const { currentState } = useSimStore();
+  const { currentState, allStates, currentIndex } = useSimStore();
   const cp = currentState.countryProgress[country.iso3];
   if (!cp) return null;
+
+  // Sample country progress over time (monthly samples up to current step)
+  const timeline: number[] = [];
+  for (let i = 0; i <= currentIndex; i += 4) {
+    timeline.push(allStates[i]?.countryProgress[country.iso3]?.progressScore ?? 0);
+  }
+  if (timeline.length === 0) timeline.push(cp.progressScore);
 
   const spendGap = country.hasBvnkData && country.desiredSpend && country.currentSpend
     ? (country.desiredSpend - country.currentSpend) * 100
@@ -96,7 +104,7 @@ function CountryDetailDrawer({ country, onClose }: CountryDetailProps) {
         )}
       </div>
 
-      <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">シミュレーション ({currentState.year})</div>
+      <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">シミュレーション ({formatStepShort(currentState.step)})</div>
       <div className="space-y-1">
         <Row label="進捗スコア" value={`${cp.progressScore.toFixed(1)} / 100`} />
         <Row label="採用ステージ" value={getAdoptionStageLabelJa(cp.adoptionStage)} />
@@ -107,12 +115,12 @@ function CountryDetailDrawer({ country, onClose }: CountryDetailProps) {
 
       <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mt-4 mb-2">進捗推移</div>
       <div className="flex items-end gap-0.5 h-12">
-        {cp.timeline.map((v, i) => (
+        {timeline.map((v, i) => (
           <div
             key={i}
             className="flex-1 bg-indigo-400 rounded-sm"
             style={{ height: `${Math.max(2, (v / 100) * 48)}px` }}
-            title={`${2027 + i}: ${v.toFixed(1)}`}
+            title={`${formatStepShort(i * 4)}: ${v.toFixed(1)}`}
           />
         ))}
       </div>

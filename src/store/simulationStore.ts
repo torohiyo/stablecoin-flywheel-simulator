@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { SimulationState, SliderParams, ScenarioKey } from '../simulation/types';
+import { TOTAL_STEPS } from '../simulation/types';
 import { DEFAULT_PARAMS } from '../data/defaults';
 import { runFullSimulation } from '../simulation/model';
 import { SCENARIOS } from '../simulation/scenarios';
@@ -11,16 +12,18 @@ interface SimStore {
   allStates: SimulationState[];
   currentIndex: number;
   isPlaying: boolean;
+  playSpeed: number; // steps per tick (e.g., 1 = 1 week per tick, 4 = 4 weeks per tick)
 
   currentState: SimulationState;
-  triggeredEventDetails: Array<{ id: string; year: number; label: string; labelJa: string }>;
+  triggeredEventDetails: Array<{ id: string; step: number; label: string; labelJa: string }>;
 
   setParams: (p: Partial<SliderParams>) => void;
   setScenario: (key: ScenarioKey) => void;
   setCurrentIndex: (i: number) => void;
-  stepForward: () => void;
+  stepForward: (count?: number) => void;
   reset: () => void;
   setIsPlaying: (v: boolean) => void;
+  setPlaySpeed: (v: number) => void;
 }
 
 function rebuildStates(params: SliderParams) {
@@ -30,11 +33,11 @@ function rebuildStates(params: SliderParams) {
 function extractEvents(states: SimulationState[]) {
   const lastState = states[states.length - 1];
   return lastState.triggeredEvents.map(raw => {
-    const [id, yearStr] = raw.split('|');
+    const [id, stepStr] = raw.split('|');
     const evt = THRESHOLD_EVENTS.find(e => e.id === id);
     return {
       id,
-      year: parseInt(yearStr),
+      step: parseInt(stepStr),
       label: evt?.label ?? id,
       labelJa: evt?.labelJa ?? id,
     };
@@ -49,6 +52,7 @@ export const useSimStore = create<SimStore>((set, get) => ({
   allStates: initialStates,
   currentIndex: 0,
   isPlaying: false,
+  playSpeed: 4, // default: advance 4 weeks (~1 month) per tick
   currentState: initialStates[0],
   triggeredEventDetails: extractEvents(initialStates),
 
@@ -85,13 +89,13 @@ export const useSimStore = create<SimStore>((set, get) => ({
     set({ currentIndex: idx, currentState: states[idx] });
   },
 
-  stepForward: () => {
+  stepForward: (count = 1) => {
     const { currentIndex, allStates } = get();
-    if (currentIndex < allStates.length - 1) {
-      const idx = currentIndex + 1;
-      set({ currentIndex: idx, currentState: allStates[idx] });
+    const next = Math.min(currentIndex + count, allStates.length - 1);
+    if (next >= allStates.length - 1) {
+      set({ currentIndex: allStates.length - 1, currentState: allStates[allStates.length - 1], isPlaying: false });
     } else {
-      set({ isPlaying: false });
+      set({ currentIndex: next, currentState: allStates[next] });
     }
   },
 
@@ -107,4 +111,5 @@ export const useSimStore = create<SimStore>((set, get) => ({
   },
 
   setIsPlaying: (v) => set({ isPlaying: v }),
+  setPlaySpeed: (v) => set({ playSpeed: Math.max(1, Math.min(TOTAL_STEPS, v)) }),
 }));

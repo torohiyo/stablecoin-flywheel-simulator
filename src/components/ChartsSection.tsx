@@ -1,11 +1,14 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, Legend,
-  AreaChart, Area,
+  AreaChart, Area, ReferenceLine,
 } from 'recharts';
 import { useSimStore } from '../store/simulationStore';
+import { stepToYear, TOTAL_STEPS, formatStepShort } from '../simulation/types';
 
 type ChartTab = 'corporate' | 'agent' | 'consumer' | 'global';
+
+const MONTHLY_SAMPLE = 4; // every 4 weeks
 
 function formatYen(v: number) {
   if (v >= 10000) return `${(v / 10000).toFixed(1)}兆`;
@@ -13,28 +16,51 @@ function formatYen(v: number) {
   return `${v.toFixed(0)}億`;
 }
 
+const YEAR_TICKS: number[] = [];
+for (let y = 0; y <= TOTAL_STEPS; y += 52) YEAR_TICKS.push(y);
+
+function yearTick(step: number): string {
+  return `${stepToYear(step)}`;
+}
+
 export function ChartsSection() {
   const [tab, setTab] = useState<ChartTab>('corporate');
   const { allStates, currentIndex } = useSimStore();
 
-  const data = allStates.map(s => ({
-    year: s.year,
-    corpBalance: s.corporateScBalance,
-    b2bPayments: s.annualB2BScPayments,
-    b2bReuse: +(s.b2bReuseRatio * 100).toFixed(1),
-    payrollUsers: Math.round(s.scPayrollUsers / 1000),
-    payrollVol: s.annualScPayrollVolume,
-    agentUsers: Math.round(s.aiAgentUsers / 10000),
-    agentBalance: s.agentWalletScBalance,
-    consumerBalance: s.consumerScBalance,
-    retention: +(s.consumerRetentionRate * 100).toFixed(1),
-    cashOut: +(s.cashOutRate * 100).toFixed(1),
-    merchantCount: Math.round(s.merchantAcceptanceCount / 1000),
-    consumerPayments: s.consumerScPaymentVolume,
-    merchantBalance: s.merchantScBalance,
-    merchantReuse: +(s.merchantReuseRatio * 100).toFixed(1),
-    brandedJpy: +s.brandedJpyPenetration.toFixed(1),
-  }));
+  const data = useMemo(() =>
+    allStates
+      .filter((_, i) => i % MONTHLY_SAMPLE === 0 || i === allStates.length - 1)
+      .map(s => ({
+        step: s.step,
+        corpBalance: s.corporateScBalance,
+        b2bPayments: s.annualB2BScPayments,
+        b2bReuse: +(s.b2bReuseRatio * 100).toFixed(2),
+        payrollUsers: Math.round(s.scPayrollUsers / 1000),
+        payrollVol: s.annualScPayrollVolume,
+        agentUsers: Math.round(s.aiAgentUsers / 10000),
+        agentBalance: s.agentWalletScBalance,
+        consumerBalance: s.consumerScBalance,
+        retention: +(s.consumerRetentionRate * 100).toFixed(2),
+        cashOut: +(s.cashOutRate * 100).toFixed(2),
+        merchantCount: Math.round(s.merchantAcceptanceCount / 1000),
+        consumerPayments: s.consumerScPaymentVolume,
+        merchantBalance: s.merchantScBalance,
+        merchantReuse: +(s.merchantReuseRatio * 100).toFixed(2),
+        brandedJpy: +s.brandedJpyPenetration.toFixed(2),
+      })), [allStates]);
+
+  const globalData = useMemo(() =>
+    allStates
+      .filter((_, i) => i % MONTHLY_SAMPLE === 0 || i === allStates.length - 1)
+      .map(s => ({
+        step: s.step,
+        JPN: +(s.countryProgress.JPN?.progressScore ?? 0).toFixed(1),
+        SGP: +(s.countryProgress.SGP?.progressScore ?? 0).toFixed(1),
+        IND: +(s.countryProgress.IND?.progressScore ?? 0).toFixed(1),
+        NGA: +(s.countryProgress.NGA?.progressScore ?? 0).toFixed(1),
+        USA: +(s.countryProgress.USA?.progressScore ?? 0).toFixed(1),
+        THA: +(s.countryProgress.THA?.progressScore ?? 0).toFixed(1),
+      })), [allStates]);
 
   const tabs: { key: ChartTab; label: string }[] = [
     { key: 'corporate', label: '企業・B2B' },
@@ -43,7 +69,18 @@ export function ChartsSection() {
     { key: 'global', label: 'グローバル' },
   ];
 
-  const refLine = data[currentIndex]?.year;
+  const currentStep = allStates[currentIndex]?.step ?? 0;
+
+  const xAxisProps = {
+    dataKey: 'step',
+    tick: { fontSize: 10 },
+    ticks: YEAR_TICKS,
+    tickFormatter: yearTick,
+    type: 'number' as const,
+    domain: [0, TOTAL_STEPS],
+  };
+
+  const labelFormatter = (step: unknown) => formatStepShort(Number(step));
 
   return (
     <div>
@@ -71,37 +108,40 @@ export function ChartsSection() {
           <ChartCard title="企業SC残高 (億円)">
             <AreaChart data={data}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="year" tick={{ fontSize: 10 }} />
+              <XAxis {...xAxisProps} />
               <YAxis tickFormatter={formatYen} tick={{ fontSize: 10 }} width={55} />
-              <Tooltip formatter={(v) => formatYen(Number(v))} />
+              <Tooltip formatter={(v) => formatYen(Number(v))} labelFormatter={labelFormatter} />
+              <ReferenceLine x={currentStep} stroke="#ef4444" strokeDasharray="4 2" />
               <Area type="monotone" dataKey="corpBalance" stroke="#3b82f6" fill="#bfdbfe" strokeWidth={2} name="企業SC残高" />
-              {refLine && <line x1={refLine} stroke="#ef4444" strokeDasharray="4 2" />}
             </AreaChart>
           </ChartCard>
-          <ChartCard title="年間B2B SC決済量 (億円)">
+          <ChartCard title="B2B SC決済量 年率換算 (億円)">
             <AreaChart data={data}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="year" tick={{ fontSize: 10 }} />
+              <XAxis {...xAxisProps} />
               <YAxis tickFormatter={formatYen} tick={{ fontSize: 10 }} width={55} />
-              <Tooltip formatter={(v) => formatYen(Number(v))} />
-              <Area type="monotone" dataKey="b2bPayments" stroke="#1d4ed8" fill="#dbeafe" strokeWidth={2} name="B2B決済量" />
+              <Tooltip formatter={(v) => formatYen(Number(v))} labelFormatter={labelFormatter} />
+              <ReferenceLine x={currentStep} stroke="#ef4444" strokeDasharray="4 2" />
+              <Area type="monotone" dataKey="b2bPayments" stroke="#1d4ed8" fill="#dbeafe" strokeWidth={2} name="B2B決済量(年率)" />
             </AreaChart>
           </ChartCard>
           <ChartCard title="B2B再利用率 (%)">
             <LineChart data={data}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="year" tick={{ fontSize: 10 }} />
+              <XAxis {...xAxisProps} />
               <YAxis tick={{ fontSize: 10 }} />
-              <Tooltip formatter={(v) => `${v}%`} />
+              <Tooltip formatter={(v) => `${v}%`} labelFormatter={labelFormatter} />
+              <ReferenceLine x={currentStep} stroke="#ef4444" strokeDasharray="4 2" />
               <Line type="monotone" dataKey="b2bReuse" stroke="#6366f1" strokeWidth={2} dot={false} name="B2B再利用率" />
             </LineChart>
           </ChartCard>
           <ChartCard title="SC給与ユーザー数 (千人)">
             <AreaChart data={data}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="year" tick={{ fontSize: 10 }} />
+              <XAxis {...xAxisProps} />
               <YAxis tick={{ fontSize: 10 }} />
-              <Tooltip formatter={(v) => `${v}千人`} />
+              <Tooltip formatter={(v) => `${v}千人`} labelFormatter={labelFormatter} />
+              <ReferenceLine x={currentStep} stroke="#ef4444" strokeDasharray="4 2" />
               <Area type="monotone" dataKey="payrollUsers" stroke="#60a5fa" fill="#dbeafe" strokeWidth={2} name="SC給与ユーザー" />
             </AreaChart>
           </ChartCard>
@@ -113,18 +153,20 @@ export function ChartsSection() {
           <ChartCard title="AIエージェントユーザー (万人)">
             <AreaChart data={data}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="year" tick={{ fontSize: 10 }} />
+              <XAxis {...xAxisProps} />
               <YAxis tick={{ fontSize: 10 }} />
-              <Tooltip formatter={(v) => `${v}万人`} />
+              <Tooltip formatter={(v) => `${v}万人`} labelFormatter={labelFormatter} />
+              <ReferenceLine x={currentStep} stroke="#ef4444" strokeDasharray="4 2" />
               <Area type="monotone" dataKey="agentUsers" stroke="#7c3aed" fill="#ede9fe" strokeWidth={2} name="AIエージェント" />
             </AreaChart>
           </ChartCard>
           <ChartCard title="エージェントウォレットSC残高 (億円)">
             <AreaChart data={data}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="year" tick={{ fontSize: 10 }} />
+              <XAxis {...xAxisProps} />
               <YAxis tickFormatter={formatYen} tick={{ fontSize: 10 }} width={55} />
-              <Tooltip formatter={(v) => formatYen(Number(v))} />
+              <Tooltip formatter={(v) => formatYen(Number(v))} labelFormatter={labelFormatter} />
+              <ReferenceLine x={currentStep} stroke="#ef4444" strokeDasharray="4 2" />
               <Area type="monotone" dataKey="agentBalance" stroke="#5b21b6" fill="#ddd6fe" strokeWidth={2} name="WL残高" />
             </AreaChart>
           </ChartCard>
@@ -136,19 +178,21 @@ export function ChartsSection() {
           <ChartCard title="個人SC残高 (億円)">
             <AreaChart data={data}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="year" tick={{ fontSize: 10 }} />
+              <XAxis {...xAxisProps} />
               <YAxis tickFormatter={formatYen} tick={{ fontSize: 10 }} width={55} />
-              <Tooltip formatter={(v) => formatYen(Number(v))} />
+              <Tooltip formatter={(v) => formatYen(Number(v))} labelFormatter={labelFormatter} />
+              <ReferenceLine x={currentStep} stroke="#ef4444" strokeDasharray="4 2" />
               <Area type="monotone" dataKey="consumerBalance" stroke="#16a34a" fill="#bbf7d0" strokeWidth={2} name="個人SC残高" />
             </AreaChart>
           </ChartCard>
           <ChartCard title="保持率 vs 円転率 (%)">
             <LineChart data={data}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="year" tick={{ fontSize: 10 }} />
+              <XAxis {...xAxisProps} />
               <YAxis tick={{ fontSize: 10 }} />
-              <Tooltip formatter={(v) => `${v}%`} />
+              <Tooltip formatter={(v) => `${v}%`} labelFormatter={labelFormatter} />
               <Legend wrapperStyle={{ fontSize: 10 }} />
+              <ReferenceLine x={currentStep} stroke="#ef4444" strokeDasharray="4 2" />
               <Line type="monotone" dataKey="retention" stroke="#16a34a" strokeWidth={2} dot={false} name="保持率" />
               <Line type="monotone" dataKey="cashOut" stroke="#ef4444" strokeWidth={2} dot={false} name="円転率" />
             </LineChart>
@@ -156,18 +200,20 @@ export function ChartsSection() {
           <ChartCard title="SC対応加盟店数 (千店)">
             <AreaChart data={data}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="year" tick={{ fontSize: 10 }} />
+              <XAxis {...xAxisProps} />
               <YAxis tick={{ fontSize: 10 }} />
-              <Tooltip formatter={(v) => `${v}千店`} />
+              <Tooltip formatter={(v) => `${v}千店`} labelFormatter={labelFormatter} />
+              <ReferenceLine x={currentStep} stroke="#ef4444" strokeDasharray="4 2" />
               <Area type="monotone" dataKey="merchantCount" stroke="#0d9488" fill="#ccfbf1" strokeWidth={2} name="加盟店" />
             </AreaChart>
           </ChartCard>
           <ChartCard title="ブランドJPY浸透度">
             <AreaChart data={data}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="year" tick={{ fontSize: 10 }} />
+              <XAxis {...xAxisProps} />
               <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} />
-              <Tooltip />
+              <Tooltip labelFormatter={labelFormatter} />
+              <ReferenceLine x={currentStep} stroke="#ef4444" strokeDasharray="4 2" />
               <Area type="monotone" dataKey="brandedJpy" stroke="#d97706" fill="#fef3c7" strokeWidth={2} name="Branded JPY" />
             </AreaChart>
           </ChartCard>
@@ -175,27 +221,21 @@ export function ChartsSection() {
       )}
 
       {tab === 'global' && (
-        <div className="grid grid-cols-2 gap-4">
-          <ChartCard title="国別採用ステージ分布">
-            <LineChart data={data}>
+        <div className="grid grid-cols-1 gap-4">
+          <ChartCard title="国別採用進捗スコア (0-100)" height={300}>
+            <LineChart data={globalData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="year" tick={{ fontSize: 10 }} />
-              <YAxis tick={{ fontSize: 10 }} />
-              <Tooltip />
+              <XAxis {...xAxisProps} />
+              <YAxis tick={{ fontSize: 10 }} domain={[0, 100]} />
+              <Tooltip labelFormatter={labelFormatter} />
               <Legend wrapperStyle={{ fontSize: 10 }} />
-              {['JPN', 'SGP', 'IND', 'NGA', 'USA'].map((iso, i) => {
-                const colors = ['#6366f1', '#0ea5e9', '#16a34a', '#dc2626', '#f59e0b'];
-                return (
-                  <Line
-                    key={iso}
-                    type="monotone"
-                    dataKey={d => (d as { year: number }[]).length > 0 ? 0 : 0}
-                    stroke={colors[i]}
-                    dot={false}
-                    name={iso}
-                  />
-                );
-              })}
+              <ReferenceLine x={currentStep} stroke="#ef4444" strokeDasharray="4 2" />
+              <Line type="monotone" dataKey="JPN" stroke="#f59e0b" strokeWidth={2} dot={false} name="日本" />
+              <Line type="monotone" dataKey="SGP" stroke="#0ea5e9" strokeWidth={2} dot={false} name="シンガポール" />
+              <Line type="monotone" dataKey="IND" stroke="#16a34a" strokeWidth={2} dot={false} name="インド" />
+              <Line type="monotone" dataKey="THA" stroke="#8b5cf6" strokeWidth={2} dot={false} name="タイ" />
+              <Line type="monotone" dataKey="NGA" stroke="#dc2626" strokeWidth={2} dot={false} name="ナイジェリア" />
+              <Line type="monotone" dataKey="USA" stroke="#6366f1" strokeWidth={2} dot={false} name="アメリカ" />
             </LineChart>
           </ChartCard>
         </div>
@@ -204,11 +244,11 @@ export function ChartsSection() {
   );
 }
 
-function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
+function ChartCard({ title, children, height = 160 }: { title: string; children: React.ReactNode; height?: number }) {
   return (
     <div className="bg-white rounded-lg border border-slate-200 p-3">
       <div className="text-xs font-medium text-slate-600 mb-2">{title}</div>
-      <ResponsiveContainer width="100%" height={160}>
+      <ResponsiveContainer width="100%" height={height}>
         {children as React.ReactElement}
       </ResponsiveContainer>
     </div>

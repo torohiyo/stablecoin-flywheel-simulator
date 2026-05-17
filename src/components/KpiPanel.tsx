@@ -1,4 +1,5 @@
 import { useSimStore } from '../store/simulationStore';
+import { formatStepShort } from '../simulation/types';
 
 function fmt(v: number, decimals = 1): string {
   if (v >= 10000) return `¥${(v / 10000).toFixed(decimals)}兆`;
@@ -43,25 +44,25 @@ export function KpiPanel() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">KPI Panel — {s.year}</div>
+      <div className="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">KPI Panel — {formatStepShort(s.step)}</div>
       <div className="grid grid-cols-1 gap-2">
         <div className="text-xs font-medium text-blue-700 uppercase tracking-wider mt-1">Corporate / B2B</div>
         <KpiItem label="Corporate SC Balance" labelJa="企業SC残高" value={fmt(s.corporateScBalance)} />
-        <KpiItem label="Annual B2B SC Payment Volume" labelJa="年間B2B SC決済量" value={fmt(s.annualB2BScPayments)} />
+        <KpiItem label="Annualized B2B SC Payment Volume" labelJa="B2B SC決済量 (年率換算)" value={fmt(s.annualB2BScPayments)} />
         <KpiItem label="B2B Reuse Ratio" labelJa="B2B再利用率" value={`${(s.b2bReuseRatio * 100).toFixed(1)}%`} />
         <KpiItem label="SC Payroll Users" labelJa="SC給与・ペイアウト受取人数" value={fmtPeople(s.scPayrollUsers)} />
-        <KpiItem label="Annual SC Payroll Volume" labelJa="年間SC給与・ペイアウト量" value={fmt(s.annualScPayrollVolume)} />
+        <KpiItem label="Annualized SC Payroll Volume" labelJa="SC給与・ペイアウト量 (年率換算)" value={fmt(s.annualScPayrollVolume)} />
 
         <div className="text-xs font-medium text-purple-700 uppercase tracking-wider mt-1">AI Agent</div>
         <KpiItem label="AI Agent Users" labelJa="AIエージェントユーザー数" value={fmtPeople(s.aiAgentUsers)} color="text-purple-700" />
         <KpiItem label="Agent Wallet Users" labelJa="エージェントウォレット保有者" value={fmtPeople(s.agentWalletUsers)} color="text-purple-700" />
         <KpiItem label="Agent Wallet SC Balance" labelJa="エージェントウォレットSC残高" value={fmt(s.agentWalletScBalance)} color="text-purple-700" />
-        <KpiItem label="Annual AI Agent Payment Volume" labelJa="年間AIエージェント決済量" value={fmt(s.annualAgentPaymentVolume)} color="text-purple-700" />
+        <KpiItem label="Annualized AI Agent Payment Volume" labelJa="AIエージェント決済量 (年率換算)" value={fmt(s.annualAgentPaymentVolume)} color="text-purple-700" />
 
         <div className="text-xs font-medium text-green-700 uppercase tracking-wider mt-1">Consumer</div>
         <KpiItem label="Consumer SC Balance" labelJa="個人SC残高" value={fmt(s.consumerScBalance)} color="text-green-700" />
         <KpiItem label="Consumer Retention Rate" labelJa="個人SC保持率" value={`${(s.consumerRetentionRate * 100).toFixed(1)}%`} color="text-green-700" />
-        <KpiItem label="Consumer SC Payment Volume" labelJa="個人SC決済量" value={fmt(s.consumerScPaymentVolume)} color="text-green-700" />
+        <KpiItem label="Annualized Consumer SC Payment Volume" labelJa="個人SC決済量 (年率換算)" value={fmt(s.consumerScPaymentVolume)} color="text-green-700" />
         <KpiItem label="Merchant Acceptance Count" labelJa="SC対応加盟店数" value={fmtMerchant(s.merchantAcceptanceCount)} color="text-green-700" />
         <KpiItem label="Merchant SC Balance" labelJa="加盟店SC残高" value={fmt(s.merchantScBalance)} color="text-green-700" />
         <KpiItem label="Merchant Reuse Ratio" labelJa="加盟店再利用率" value={`${(s.merchantReuseRatio * 100).toFixed(1)}%`} color="text-green-700" />

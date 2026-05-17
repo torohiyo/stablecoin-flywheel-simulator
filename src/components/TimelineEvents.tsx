@@ -1,9 +1,10 @@
 import { useSimStore } from '../store/simulationStore';
+import { formatStepShort } from '../simulation/types';
 
 export function TimelineEvents() {
   const { triggeredEventDetails, currentState } = useSimStore();
 
-  const visible = triggeredEventDetails.filter(e => e.year <= currentState.year);
+  const visible = triggeredEventDetails.filter(e => e.step <= currentState.step);
 
   return (
     <div>
@@ -20,7 +21,7 @@ export function TimelineEvents() {
               className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-full px-3 py-1"
             >
               <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
-              <span className="text-xs font-medium text-amber-800">{evt.year}</span>
+              <span className="text-xs font-medium text-amber-800 tabular-nums">{formatStepShort(evt.step)}</span>
               <span className="text-xs text-amber-700">{evt.labelJa}</span>
             </div>
           ))}
